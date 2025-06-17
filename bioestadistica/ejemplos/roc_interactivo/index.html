@@ -6,28 +6,29 @@
   <title>Curva ROC interactiva – Diabetes (1 000 pacientes)</title>
   <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <style>
-    body{font-family:system-ui,Arial,sans-serif;margin:0;padding:0 12px;line-height:1.5}
+    :root{--bg:#fafafa;--grid:#e0e0e0}
+    body{font-family:system-ui,Arial,sans-serif;margin:0;padding:0 12px;background:var(--bg);line-height:1.5;color:#111}
     h1{text-align:center;margin:20px 0;font-size:1.8rem}
-    #controls{max-width:520px;margin:20px auto;text-align:center}
-    #roc-plot{max-width:720px;margin:0 auto}
-    table{border-collapse:collapse;margin:20px auto;font-size:1rem}
-    th,td{border:1px solid #444;padding:6px 12px;text-align:center}
-    th{background:#f0f0f0}
-    caption{font-weight:600;margin-bottom:6px}
+    #controls{max-width:560px;margin:20px auto;text-align:center}
+    #roc-plot{max-width:760px;margin:0 auto}
+    table{border-collapse:collapse;margin:24px auto;font-size:1rem}
+    th,td{border:1px solid #444;padding:6px 14px;text-align:center}
+    th{background:#f0f0f0;font-weight:600}
+    caption{font-weight:700;margin-bottom:6px}
     .metric{margin:4px 0}
+    #auc{font-weight:700}
+    input[type=range]{accent-color:#0077ff}
   </style>
 </head>
 <body>
 <h1>Curva ROC interactiva – Ejemplo de Diabetes (n = 1 000)</h1>
 
 <div id="controls">
-  <label for="thr">
-    Punto de corte (mg/dL) 
-    <span id="thr-val">126</span>
-  </label><br>
+  <label for="thr">Punto de corte (mg/dL) <span id="thr-val">126</span></label><br>
   <input id="thr" type="range" min="70" max="250" step="1" value="126" style="width:85%">
   <div class="metric">Sensibilidad: <strong id="sens">—</strong></div>
   <div class="metric">Especificidad: <strong id="spec">—</strong></div>
+  <div class="metric">AUC: <span id="auc">—</span></div>
 </div>
 
 <div id="roc-plot"></div>
@@ -45,53 +46,63 @@
 </table>
 
 <script>
-/* ---------- 0. Auxiliar: distribución normal (Box–Muller) ---------- */
+/* ---------- 0. Distribución normal ---------- */
 function randn(mean=0, sd=1){
   const u=Math.random(), v=Math.random();
   return mean + sd*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
 }
-/* ---------- 1. Simula 1 000 pacientes ---------- */
-const N_POS=500, N_NEG=500;                   // 50 % prevalencia
+
+/* ---------- 1. Genera pacientes ---------- */
+const N_POS=500, N_NEG=500;
 const yTrue=[], glucose=[];
-for(let i=0;i<N_POS;i++){                     // Diabéticos: glicemia más alta
+for(let i=0;i<N_POS;i++){           // diabéticos
   yTrue.push(1);
-  glucose.push(Math.max(70, randn(190,25)));  // µ ≈ 190, σ ≈ 25
+  glucose.push(Math.max(70, randn(160,30))); // µ≈160 σ≈30
 }
-for(let i=0;i<N_NEG;i++){                     // No diabéticos: glicemia menor
+for(let i=0;i<N_NEG;i++){           // no diabéticos
   yTrue.push(0);
-  glucose.push(Math.max(50, randn(95,15)));   // µ ≈ 95,  σ ≈ 15
+  glucose.push(Math.max(50, randn(105,25))); // µ≈105 σ≈25
 }
 
-/* ---------- 2. Genera datos para la curva ROC ---------- */
+/* ---------- 2. Datos ROC y AUC ---------- */
 function rocData(y, g){
-  const thresh=[...new Set([...g,70,250])].sort((a,b)=>b-a);   // de alto a bajo
-  return thresh.map(t=>{
+  const thresh=[...new Set([...g,70,250])].sort((a,b)=>b-a);
+  let auc=0, prevFPR=0, prevTPR=0;
+  const pts=thresh.map(t=>{
     let TP=0,FP=0,TN=0,FN=0;
     y.forEach((lab,i)=>{
       const pred=g[i]>=t?1:0;
       if(pred&&lab) TP++; else if(pred&&!lab) FP++;
       else if(!pred&&!lab) TN++; else FN++;
     });
-    return {thr:t, tpr:TP/(TP+FN), fpr:FP/(FP+TN)};
+    const tpr=TP/(TP+FN), fpr=FP/(FP+TN);
+    auc += (fpr - prevFPR) * (tpr + prevTPR) / 2; // trapecios
+    prevFPR=fpr; prevTPR=tpr;
+    return {thr:t, tpr, fpr};
   });
+  return {pts, auc:1-auc};  // invertido porque fpr baja→alta
 }
-const rocPts=rocData(yTrue,glucose);
+const {pts:rocPts, auc} = rocData(yTrue,glucose);
+document.getElementById('auc').textContent=auc.toFixed(2);
 
-/* ---------- 3. Dibuja la curva ---------- */
+/* ---------- 3. Grafica ---------- */
 Plotly.newPlot('roc-plot',[
   {x:rocPts.map(d=>d.fpr), y:rocPts.map(d=>d.tpr),
-   mode:'lines', name:'ROC'},
-  {x:[0,1], y:[0,1],
-   mode:'lines', line:{dash:'dot',color:'#888'}, showlegend:false},
-  {x:[0], y:[0],
-   mode:'markers', marker:{size:10,color:'red'}, name:'Punto actual'}
+   mode:'lines', name:'ROC', line:{color:'#0077ff'}},
+  {x:[0,1], y:[0,1], showlegend:false,
+   mode:'lines', line:{dash:'dot',color:'#888'}},
+  {x:[0], y:[0], mode:'markers',
+   marker:{size:11,color:'crimson',opacity:0.9,
+           line:{width:1,color:'#333'}},
+   name:'Punto actual'}
 ],{
-  xaxis:{title:'1 − Especificidad',range:[0,1]},
-  yaxis:{title:'Sensibilidad',range:[0,1]},
-  margin:{l:50,r:20,b:50,t:20}
+  xaxis:{title:'1 − Especificidad',range:[0,1],gridcolor:'var(--grid)'},
+  yaxis:{title:'Sensibilidad',range:[0,1],gridcolor:'var(--grid)'},
+  margin:{l:60,r:20,b:60,t:20},
+  legend:{orientation:'h',y:-0.12}
 });
 
-/* ---------- 4. Actualiza métricas y punto ---------- */
+/* ---------- 4. Actualización dinámica ---------- */
 function update(thr){
   let TP=0,FP=0,TN=0,FN=0;
   yTrue.forEach((lab,i)=>{
@@ -112,11 +123,11 @@ function update(thr){
 /* ---------- 5. Slider ---------- */
 const slider=document.getElementById('thr');
 slider.addEventListener('input',e=>{
-  const v=Number(e.target.value);
+  const v=+e.target.value;
   document.getElementById('thr-val').textContent=v;
   update(v);
 });
-update(Number(slider.value));
+update(+slider.value);
 </script>
 </body>
 </html>
