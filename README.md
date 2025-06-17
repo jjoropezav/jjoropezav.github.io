@@ -1,15 +1,13 @@
 # 📊 Clase de Bioestadística — 2025-2
 
-_Universidad X • Facultad de Ciencias de la Salud_  
+_Universidad Anahuac •
 **Profesor:** Juan José Oropeza Valdez
 
 > “Without data you’re just another person with an opinion.” — W. Edwards Deming
 
-## Objetivos
+## Objetivo
 1. Comprender estadística descriptiva e inferencial.
-2. Aplicar pruebas paramétricas y no-paramétricas en **R** y **Python**.
-3. Evaluar sensibilidad, especificidad, VPP, VPN y AUC-ROC.
-4. Interpretar intervalos de confianza y valores-p de forma crítica.
+
 
 ## Temario y material
 
@@ -33,7 +31,7 @@ _Universidad X • Facultad de Ciencias de la Salud_
 - **Examen escrito** – 30 %
 
 ## Contacto
-Abre un **Issue** en GitHub o escribe a <correo@ejemplo.edu>.
+Abre un **Issue** en GitHub o escribe a <joropeza@inmegen.edu.mx>.
 
 ---
 
