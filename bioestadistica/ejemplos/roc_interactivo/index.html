@@ -104,18 +104,27 @@
       <!-- Ejes -->
       <line x1="50" y1="350" x2="350" y2="350" stroke="#000"/>
       <line x1="50" y1="50"  x2="50"  y2="350" stroke="#000"/>
-      <!-- Ticks X -->
-      <text x="50" y="365"  text-anchor="start"  font-size="12">0,0</text>
+
+      <!-- Ticks X (1 − Especificidad) -->
+      <text x="50"  y="365" text-anchor="start"  font-size="12">0,0</text>
       <text x="200" y="365" text-anchor="middle" font-size="12">0,5</text>
       <text x="350" y="365" text-anchor="end"   font-size="12">1,0</text>
-      <!-- Ticks Y -->
+
+      <!-- Ticks Y (Sensibilidad) -->
       <text x="45" y="350" text-anchor="end" font-size="12">0,0</text>
       <text x="45" y="200" text-anchor="end" font-size="12">0,5</text>
       <text x="45" y="50"  text-anchor="end" font-size="12">1,0</text>
+
       <!-- Títulos de ejes -->
-      <text x="200" y="390" text-anchor="middle" font-size="13">Tasa de Falsos Positivos</text>
-      <text x="20"  y="200" text-anchor="middle" font-size="13" transform="rotate(-90 20,200)">Tasa de Verdaderos Positivos</text>
-      <!-- Ruta ROC y punto -->
+      <text x="200" y="390" text-anchor="middle" font-size="13">
+        1 − Especificidad (Tasa de Falsos Positivos)
+      </text>
+      <text x="20"  y="200" text-anchor="middle" font-size="13"
+            transform="rotate(-90 20,200)">
+        Sensibilidad (Tasa de Verdaderos Positivos)
+      </text>
+
+      <!-- Ruta ROC y punto de corte -->
       <path id="rutaROC" stroke="#2196F3" stroke-width="2" fill="none"></path>
       <circle id="puntoCorte" r="5" fill="#f44336" stroke="#fff" stroke-width="1"></circle>
     </svg>
@@ -150,7 +159,7 @@
     /* ==========================================================
        Simulación de datos: 1 000 pacientes (500 positivos, 500 negativos)
        ========================================================== */
-    const nPos = 500, nNeg = 500;     // totales
+    const nPos = 500, nNeg = 500;
     const glucosas = [], etiquetas = [];
 
     // Generador Normal(μ,σ)
@@ -160,13 +169,13 @@
       const z = Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
       return mu + sigma*z;
     }
-    // Diabéticos: media 140 mg/dL, σ 15
+    // Diabéticos ~ N(140, 15²)
     for(let i=0;i<nPos;i++){ glucosas.push(normalAleatoria(140,15)); etiquetas.push(1); }
-    // Sanos: media 110 mg/dL, σ 15
+    // Sanos ~ N(110, 15²)
     for(let j=0;j<nNeg;j++){ glucosas.push(normalAleatoria(110,15)); etiquetas.push(0); }
 
     /* ==========================================================
-       Cálculo de la curva ROC (una sola vez)
+       Cálculo de la curva ROC
        ========================================================== */
     const idxOrden = [...glucosas.keys()].sort((a,b)=>glucosas[b]-glucosas[a]);
     let tp=0, fp=0;
@@ -175,7 +184,7 @@
       if(etiquetas[k]===1) tp++; else fp++;
       puntosROC.push({fpr:fp/nNeg, tpr:tp/nPos});
     }
-    // Conversión a ruta SVG
+    // Ruta SVG
     const rutaSVG = puntosROC.map((p,i)=>{
       const x = 50 + p.fpr*300;
       const y = 350 - p.tpr*300;
