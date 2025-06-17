@@ -8,8 +8,8 @@
   <style>
     body{font-family:system-ui,Arial,sans-serif;margin:0;padding:0 12px;line-height:1.5}
     h1{text-align:center;margin:20px 0;font-size:1.8rem}
-    #controls{max-width:500px;margin:20px auto;text-align:center}
-    #roc-plot{max-width:700px;margin:0 auto}
+    #controls{max-width:520px;margin:20px auto;text-align:center}
+    #roc-plot{max-width:720px;margin:0 auto}
     table{border-collapse:collapse;margin:20px auto;font-size:1rem}
     th,td{border:1px solid #444;padding:6px 12px;text-align:center}
     th{background:#f0f0f0}
@@ -21,8 +21,11 @@
 <h1>Curva ROC interactiva – Ejemplo de Diabetes (n = 1 000)</h1>
 
 <div id="controls">
-  <label for="thr">Punto de corte&nbsp;<span id="thr-val">0.50</span></label><br>
-  <input id="thr" type="range" min="0" max="1" step="0.01" value="0.50" style="width:80%">
+  <label for="thr">
+    Punto de corte (mg/dL) 
+    <span id="thr-val">126</span>
+  </label><br>
+  <input id="thr" type="range" min="70" max="250" step="1" value="126" style="width:85%">
   <div class="metric">Sensibilidad: <strong id="sens">—</strong></div>
   <div class="metric">Especificidad: <strong id="spec">—</strong></div>
 </div>
@@ -30,9 +33,11 @@
 <div id="roc-plot"></div>
 
 <table>
-  <caption>Matriz 2×2 (confusión)</caption>
-  <thead><tr><th rowspan="2"></th><th colspan="2">Referencia</th></tr>
-         <tr><th>Diabético</th><th>No diabético</th></tr></thead>
+  <caption>Matriz 2 × 2 (confusión)</caption>
+  <thead>
+    <tr><th rowspan="2"></th><th colspan="2">Referencia</th></tr>
+    <tr><th>Diabético</th><th>No diabético</th></tr>
+  </thead>
   <tbody>
     <tr><th>Pred. Diabético</th><td id="TP">0</td><td id="FP">0</td></tr>
     <tr><th>Pred. No diabético</th><td id="FN">0</td><td id="TN">0</td></tr>
@@ -40,56 +45,62 @@
 </table>
 
 <script>
-/* ---------- 0. Auxiliar: distribución normal (Box-Muller) ---------- */
+/* ---------- 0. Auxiliar: distribución normal (Box–Muller) ---------- */
 function randn(mean=0, sd=1){
   const u=Math.random(), v=Math.random();
   return mean + sd*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
 }
 /* ---------- 1. Simula 1 000 pacientes ---------- */
-const N_POS=500, N_NEG=500;
-const yTrue=[], scores=[];
-for(let i=0;i<N_POS;i++){            // diabéticos: glucosa alta ⇒ score alto
+const N_POS=500, N_NEG=500;                   // 50 % prevalencia
+const yTrue=[], glucose=[];
+for(let i=0;i<N_POS;i++){                     // Diabéticos: glicemia más alta
   yTrue.push(1);
-  scores.push(Math.min(1, Math.max(0, randn(0.80,0.10)))); // media 0.8
+  glucose.push(Math.max(70, randn(190,25)));  // µ ≈ 190, σ ≈ 25
 }
-for(let i=0;i<N_NEG;i++){            // no diabéticos: score bajo
+for(let i=0;i<N_NEG;i++){                     // No diabéticos: glicemia menor
   yTrue.push(0);
-  scores.push(Math.min(1, Math.max(0, randn(0.20,0.10)))); // media 0.2
+  glucose.push(Math.max(50, randn(95,15)));   // µ ≈ 95,  σ ≈ 15
 }
 
-/* ---------- 2. Genera la curva ROC ---------- */
-function rocData(y, p){
-  const thresh=[...new Set([...p,1,0])].sort((a,b)=>b-a);
+/* ---------- 2. Genera datos para la curva ROC ---------- */
+function rocData(y, g){
+  const thresh=[...new Set([...g,70,250])].sort((a,b)=>b-a);   // de alto a bajo
   return thresh.map(t=>{
     let TP=0,FP=0,TN=0,FN=0;
     y.forEach((lab,i)=>{
-      const pred=p[i]>=t?1:0;
+      const pred=g[i]>=t?1:0;
       if(pred&&lab) TP++; else if(pred&&!lab) FP++;
       else if(!pred&&!lab) TN++; else FN++;
     });
     return {thr:t, tpr:TP/(TP+FN), fpr:FP/(FP+TN)};
   });
 }
-const rocPts=rocData(yTrue,scores);
+const rocPts=rocData(yTrue,glucose);
 
 /* ---------- 3. Dibuja la curva ---------- */
 Plotly.newPlot('roc-plot',[
-  {x:rocPts.map(d=>d.fpr),y:rocPts.map(d=>d.tpr),mode:'lines',name:'ROC'},
-  {x:[0,1],y:[0,1],mode:'lines',line:{dash:'dot',color:'#888'},showlegend:false},
-  {x:[0],y:[0],mode:'markers',marker:{size:10,color:'red'},name:'Punto actual'}
-],{xaxis:{title:'1 – Especificidad',range:[0,1]},
-    yaxis:{title:'Sensibilidad',range:[0,1]},
-    margin:{l:50,r:20,b:50,t:20}});
+  {x:rocPts.map(d=>d.fpr), y:rocPts.map(d=>d.tpr),
+   mode:'lines', name:'ROC'},
+  {x:[0,1], y:[0,1],
+   mode:'lines', line:{dash:'dot',color:'#888'}, showlegend:false},
+  {x:[0], y:[0],
+   mode:'markers', marker:{size:10,color:'red'}, name:'Punto actual'}
+],{
+  xaxis:{title:'1 − Especificidad',range:[0,1]},
+  yaxis:{title:'Sensibilidad',range:[0,1]},
+  margin:{l:50,r:20,b:50,t:20}
+});
 
 /* ---------- 4. Actualiza métricas y punto ---------- */
 function update(thr){
   let TP=0,FP=0,TN=0,FN=0;
   yTrue.forEach((lab,i)=>{
-    const pred=scores[i]>=thr?1:0;
+    const pred=glucose[i]>=thr?1:0;
     if(pred&&lab) TP++; else if(pred&&!lab) FP++;
     else if(!pred&&!lab) TN++; else FN++;
   });
   const sens=TP/(TP+FN), spec=TN/(TN+FP);
+
   [['TP',TP],['FP',FP],['TN',TN],['FN',FN]].forEach(([id,val])=>{
     document.getElementById(id).textContent=val;
   });
@@ -97,11 +108,12 @@ function update(thr){
   document.getElementById('spec').textContent=spec.toFixed(2);
   Plotly.restyle('roc-plot',{x:[[1-spec]],y:[[sens]]},[2]);
 }
+
 /* ---------- 5. Slider ---------- */
 const slider=document.getElementById('thr');
 slider.addEventListener('input',e=>{
   const v=Number(e.target.value);
-  document.getElementById('thr-val').textContent=v.toFixed(2);
+  document.getElementById('thr-val').textContent=v;
   update(v);
 });
 update(Number(slider.value));
