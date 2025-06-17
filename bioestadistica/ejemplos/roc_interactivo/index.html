@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Curva ROC interactiva – Diabetes (glucosa)</title>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <style>
+    body{font-family:system-ui,Arial,sans-serif;margin:0;padding:0 12px;line-height:1.5}
+    h1{text-align:center;margin:20px 0;font-size:1.8rem}
+    #controls{max-width:500px;margin:20px auto;text-align:center}
+    #roc-plot{max-width:700px;margin:0 auto}
+    table{border-collapse:collapse;margin:20px auto;font-size:1rem}
+    th,td{border:1px solid #444;padding:6px 12px;text-align:center}
+    th{background:#f0f0f0} caption{font-weight:600;margin-bottom:6px}
+    .metric{margin:4px 0}
+  </style>
+</head>
+<body>
+<h1>Curva ROC interactiva – Ejemplo de Diabetes (glucosa)</h1>
+
+<div id="controls">
+  <label for="thr">Punto de corte&nbsp;<span id="thr-val">0.50</span></label><br>
+  <input id="thr" type="range" min="0" max="1" step="0.01" value="0.50" style="width:80%">
+  <div class="metric">Sensibilidad: <strong id="sens">—</strong></div>
+  <div class="metric">Especificidad: <strong id="spec">—</strong></div>
+</div>
+
+<div id="roc-plot"></div>
+
+<table>
+  <caption>Matriz 2×2 (confusión)</caption>
+  <thead><tr><th rowspan="2"></th><th colspan="2">Referencia</th></tr>
+         <tr><th>Diabético</th><th>No diabético</th></tr></thead>
+  <tbody>
+    <tr><th>Pred. Diabético</th><td id="TP">0</td><td id="FP">0</td></tr>
+    <tr><th>Pred. No diabético</th><td id="FN">0</td><td id="TN">0</td></tr>
+  </tbody>
+</table>
+
+<script>
+/* ---------- Datos de ejemplo ---------- */
+const yTrue  = [1,0,1,0,1,0,1,1,0,0, 1,0,0,1,1,0,1,0,0,1];
+const scores = [0.92,0.12,0.85,0.33,0.77,0.40,0.95,0.88,0.20,0.10,
+                0.82,0.25,0.18,0.91,0.73,0.55,0.90,0.07,0.28,0.80];
+
+/* ---------- Curva ROC completa ---------- */
+function rocData(y, p){
+  const thresh = [...new Set([...p,1,0])].sort((a,b)=>b-a);
+  return thresh.map(t=>{
+    let TP=0,FP=0,TN=0,FN=0;
+    y.forEach((lab,i)=>{
+      const pred = p[i]>=t ? 1 : 0;
+      if(pred&&lab) TP++; else if(pred&&!lab) FP++;
+      else if(!pred&&!lab) TN++; else FN++;
+    });
+    return {thr:t, tpr:TP/(TP+FN), fpr:FP/(FP+TN)};
+  });
+}
+const rocPts = rocData(yTrue, scores);
+
+/* ---------- Plot ---------- */
+Plotly.newPlot('roc-plot', [
+  {x:rocPts.map(d=>d.fpr), y:rocPts.map(d=>d.tpr), mode:'lines', name:'ROC'},
+  {x:[0,1], y:[0,1], mode:'lines', line:{dash:'dot',color:'#888'}, showlegend:false},
+  {x:[0], y:[0], mode:'markers', marker:{size:10,color:'red'}, name:'Punto actual'}
+], {xaxis:{title:'1 – Especificidad',range:[0,1]},
+    yaxis:{title:'Sensibilidad',range:[0,1]},
+    margin:{l:50,r:20,b:50,t:20}});
+
+/* ---------- Actualiza métricas ---------- */
+function update(thr){
+  let TP=0,FP=0,TN=0,FN=0;
+  yTrue.forEach((lab,i)=>{
+    const pred = scores[i]>=thr ? 1 : 0;
+    if(pred&&lab) TP++; else if(pred&&!lab) FP++;
+    else if(!pred&&!lab) TN++; else FN++;
+  });
+  const sens = TP/(TP+FN), spec = TN/(TN+FP);
+  ['TP','FP','TN','FN'].forEach(id=>document.getElementById(id).textContent = eval(id));
+  document.getElementById('sens').textContent = sens.toFixed(2);
+  document.getElementById('spec').textContent = spec.toFixed(2);
+  Plotly.restyle('roc-plot', {x:[[1-spec]], y:[[sens]]}, [2]);
+}
+const slider=document.getElementById('thr');
+slider.addEventListener('input',e=>{
+  document.getElementById('thr-val').textContent=Number(e.target.value).toFixed(2);
+  update(Number(e.target.value));
+});
+update(Number(slider.value));
+</script>
+</body>
+</html>
